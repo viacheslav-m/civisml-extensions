@@ -1,0 +1,27 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[build-system]
+requires=["cython"]
+
+[dev-packages]
+pytest = "*"
+flake8 = "*"
+nose = "*"
+# Estimator checks in test_preprocessing are sklearn>0.20 only
+scikit-learn = "*"
+jupyter = "*"
+jupyterlab = "*"
+mlxtend = "*"
+
+[packages]
+pandas = "*"
+numpy = "*"
+scipy = "*"
+joblib = "*"
+six = "*"
+
+[requires]
+python_version = "3.9"
