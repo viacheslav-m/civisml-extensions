@@ -1,4 +1,7 @@
 import os
+import pkg_resources
+from typing import List, Union
+import difflib
 from setuptools import find_packages, setup
 
 CLASSIFIERS = [
@@ -16,6 +19,24 @@ def read(fname):
         return _in.read()
 
 
+def check_requirements(fname:str) -> Union[List[str], None]:
+    """Returns list of missed packages names, which should be installed. """
+    installed_packages = pkg_resources.working_set
+    # installed_packages_list = sorted(["%s==%s" % (i.key, i.version)
+    #                                   for i in installed_packages])
+    installed_packages_list = [(f"{i.key}", f"{i.version}") for i in installed_packages]
+    installed_packages_dict = dict(installed_packages_list)
+
+    required_packages = read(fname).splitlines()
+    required_packages = list(pkg_resources.parse_requirements(required_packages))
+    required_packages_list = [(f"{i.key}", "".join(list(*i.specs))) for i in required_packages]
+    required_packages_dict = dict(required_packages_list)
+
+    diff = set(required_packages_dict.keys()).difference(installed_packages_dict.keys())
+    pkg_list = [f"{pkg_name}{required_packages_dict[pkg_name]}" for pkg_name in diff]
+    return pkg_list if len(pkg_list) != 0 else None
+
+
 _VERSION = '0.3.1'
 
 setup(version=_VERSION,
@@ -25,7 +46,7 @@ setup(version=_VERSION,
       url="https://www.civisanalytics.com",
       description="scikit-learn-compatible estimators from Civis Analytics",
       packages=find_packages(),
-      install_requires=read('requirements.txt').splitlines(),
+      install_requires=check_requirements('requirements.txt'),
       long_description=read('README.rst'),
       long_description_content_type='text/x-rst',
       include_package_data=True,

@@ -2,6 +2,7 @@
 *.pyc
 __pycache__
 *egg-info
+build
 
 .DS_Store
 
@@ -11,3 +12,4 @@ __pycache__
 
 # PyCharm
 .idea
+
