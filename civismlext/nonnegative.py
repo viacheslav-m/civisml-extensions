@@ -8,8 +8,11 @@ from sklearn.utils import check_X_y
 from sklearn.base import RegressorMixin
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.utils.extmath import safe_sparse_dot
-from sklearn.linear_model.base import LinearModel
-
+try:
+    # sklearn > 0.24
+    from sklearn.linear_model._base import LinearModel
+except ModuleNotFoundError:
+    from sklearn.linear_model.base import LinearModel
 
 def _rescale_data(X, y, sample_weight):
     """Rescale data so as to support sample_weight"""

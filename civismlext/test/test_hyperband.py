@@ -7,8 +7,11 @@ from scipy.stats import expon, randint, rankdata
 import numpy as np
 
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.utils.testing import assert_equal
-from sklearn.utils.testing import assert_array_equal
+try:
+    from sklearn.utils._testing import assert_array_equal
+except ModuleNotFoundError:
+    from sklearn.utils._testing import assert_equal
+
 from sklearn.utils import check_random_state
 from sklearn.datasets import make_classification
 from sklearn.svm import SVC
@@ -217,7 +220,8 @@ def test_hyperband_search_cv_results(min_iter):
 
     for search, iid in zip(
             (hyperband_search, hyperband_search_iid), (False, True)):
-        assert_equal(iid, search.iid)
+        if 'iid' in search.__dir__():
+            assert_equal(iid, search.iid)
         cv_results = search.cv_results_
         # Check results structure
         check_cv_results_array_types(cv_results, param_keys, score_keys)
@@ -306,9 +310,11 @@ def test_process_outputs_method(out, iid):
         param_distributions={},
         return_train_score=return_train_score,
         iid=iid)
-
-    if iid:
-        wts = np.array([10, 20, 11]) / 41
+    if 'iid' in hyperband_search.__dir__():
+        if iid:
+            wts = np.array([10, 20, 11]) / 41
+        else:
+            wts = None
     else:
         wts = None
 
