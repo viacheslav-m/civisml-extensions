@@ -13,6 +13,7 @@ from scipy.stats import rankdata
 
 from sklearn.model_selection import ParameterSampler
 from sklearn.model_selection._search import BaseSearchCV
+
 from sklearn.base import is_classifier, clone
 from sklearn.model_selection import check_cv
 
@@ -20,8 +21,12 @@ from sklearn.model_selection import check_cv
 from sklearn.model_selection._validation import _fit_and_score
 
 from sklearn.utils.validation import indexable
-from sklearn.metrics.scorer import check_scoring
 from sklearn.utils import check_random_state
+try:
+    # sklearn > 0.24
+    from sklearn.metrics import check_scoring
+except ModuleNotFoundError:
+    from sklearn.metrics.scorer import check_scoring
 
 log = logging.getLogger(__name__)
 
@@ -101,7 +106,7 @@ class HyperbandSearchCV(BaseSearchCV):
             - A string, giving an expression as a function of n_jobs,
               as in '2*n_jobs'
     iid : boolean, default=True
-        If True, the data is assumed to be identically distributed across
+        DEPRECATED. If True, the data is assumed to be identically distributed across
         the folds, and the loss minimized is the total loss per sample,
         and not the mean loss across the folds.
     cv : int, cross-validation generator or an iterable, optional
@@ -251,11 +256,21 @@ class HyperbandSearchCV(BaseSearchCV):
         self.cost_parameter_min = cost_parameter_min
         self.eta = eta
         self.random_state = random_state
-        super(HyperbandSearchCV, self).__init__(
-            estimator=estimator, scoring=scoring,
-            n_jobs=n_jobs, iid=iid, refit=refit, cv=cv, verbose=verbose,
-            pre_dispatch=pre_dispatch, error_score=error_score,
-            return_train_score=return_train_score)
+        # sklearn <= 0.24 compatibility fix, add iid parameter for old releases
+        super_args = {
+            'estimator': estimator,
+            'scoring': scoring,
+            'n_jobs': n_jobs,
+            'refit': refit,
+            'cv': cv,
+            'verbose': verbose,
+            'pre_dispatch': pre_dispatch,
+            'error_score': error_score,
+            'return_train_score': return_train_score
+        }
+        if 'iid' in super().__init__.__code__.co_varnames:
+            super_args['iid'] = iid
+        super(HyperbandSearchCV, self).__init__(**super_args)
 
     def fit(self, X, y=None, groups=None, **fit_params):
         """Run fit on the estimator with randomly drawn parameters.
@@ -444,6 +459,20 @@ class HyperbandSearchCV(BaseSearchCV):
     def _process_outputs(self, out, n_splits):
         """return results dict and best dict for given outputs"""
 
+
+        # updated sklearn _fit_and_scores returns dict
+        # TODO: refactor for better performance and readability
+        if isinstance(out, list):
+            if isinstance(out[0], dict):
+                if self.return_train_score:
+                    check_output = ('train_scores', 'test_scores', 'n_test_samples',
+                                    'fit_time', 'score_time', 'parameters')
+                else:
+                    check_output = ('test_scores', 'n_test_samples',
+                                    'fit_time', 'score_time', 'parameters')
+                #assert set(out[0].keys()).issubset(check_output), "out params differ from scikit==0.23.2"
+                out_buffer = [[d[k] for k in check_output] for d in out]
+                out = out_buffer
         # if one choose to see train score, "out" will contain train score info
         if self.return_train_score:
             (train_scores, test_scores, test_sample_counts,
@@ -462,10 +491,12 @@ class HyperbandSearchCV(BaseSearchCV):
         test_sample_counts = np.array(test_sample_counts[:n_splits],
                                       dtype=np.int)
 
+        iid_parameter_isexist = True if 'iid' in self.__dir__() else False
+        iid_parameter_value = self.iid if iid_parameter_isexist else None
         results = self._store_results(
             results, n_splits, n_candidates, 'test_score',
             test_scores, splits=True, rank=True,
-            weights=test_sample_counts if self.iid else None)
+            weights=test_sample_counts if iid_parameter_value else None)# old: test_sample_counts if self.iid else None
         if self.return_train_score:
             results = self._store_results(
                 results, n_splits, n_candidates,
